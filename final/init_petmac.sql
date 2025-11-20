@@ -54,7 +54,7 @@ CREATE TABLE receipt (
 
 	last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-	FOREIGN KEY (customer_id) REFERENCES customer(id)
+	FOREIGN KEY (customer_id) REFERENCES customer(id) ON UPDATE CASCADE
 );
 
 -- "Orders" refer to shipments/manifests from distributors for restocking inventory (or returns to distributors / credits)
@@ -70,7 +70,7 @@ CREATE TABLE `order` (
 
 	last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-	FOREIGN KEY (distributor_id) REFERENCES distributor(id)
+	FOREIGN KEY (distributor_id) REFERENCES distributor(id) ON UPDATE CASCADE
 );
 
 CREATE TABLE receipt_line_item (
@@ -80,8 +80,8 @@ CREATE TABLE receipt_line_item (
 	product_sku VARCHAR(32) NOT NULL,  -- sku of purchansed product
 	quantity INT UNSIGNED,             -- how many (positive for purchases; negative for returns)
 
-	FOREIGN KEY (receipt_id) REFERENCES receipt(id),
-	FOREIGN KEY (product_sku) REFERENCES product(sku)
+	FOREIGN KEY (receipt_id) REFERENCES receipt(id) ON UPDATE CASCADE,
+	FOREIGN KEY (product_sku) REFERENCES product(sku) ON UPDATE CASCADE
 );
 
 CREATE TABLE order_line_item (
@@ -91,6 +91,6 @@ CREATE TABLE order_line_item (
 	product_sku VARCHAR(32) NOT NULL,  -- which product was ordered
 	quantity INT UNSIGNED,             -- how many (positive for orders; negative for returns/credits)
 
-	FOREIGN KEY (order_id) REFERENCES `order`(id),
-	FOREIGN KEY (product_sku) REFERENCES product(sku)
+	FOREIGN KEY (order_id) REFERENCES `order`(id) ON UPDATE CASCADE,
+	FOREIGN KEY (product_sku) REFERENCES product(sku) ON UPDATE CASCADE
 );

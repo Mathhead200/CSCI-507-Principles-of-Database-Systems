@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title> PetMAC Inventory - {{title}} </title>
+	{# <link rel="stylesheet" type="text/css" href="style.css"> #}
+	<style>
+		@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght@0,300..800;1,300..800&display=swap');
+
+		body {
+			font-family: Arial, sans-serif;
+		}
+
+		table {
+			border-collapse: collapse;
+			font-family: 'Google Sans Code', monospace;
+		}
+
+		th, td {
+			border: 1px solid black;
+			padding: 0.25em 1em;
+		}
+
+		.modified { background-color: lightskyblue; }
+		.pk-dup { background-color: lightcoral; }
+		.pk-null { background-color: lightyellow; }
+
+		#add-record {
+			width: 100%;
+			cursor: pointer;
+		}
+	</style>
+	<script type="text/javascript">
+		document.addEventListener("DOMContentLoaded", () => {
+			const PK = document.forms.vars.pk.value.split(",");
+			const MODE = document.forms.vars.mode.value;
+			const COLS = Number(document.forms.vars.cols.value);
+
+			const table = document.querySelector("#edit-table");  // actaully a <form> container
+
+			// finish initializing table
+			if (MODE == "edit") {
+				let modifiedEleCount = 0;  // track if any elements are currently modified
+				let submitBtn = table.querySelector("input[type='submit']");
+
+				// How many times each pk value appears in the table
+				let pk_tally = Object.fromEntries(PK.map(pk => [pk, new Map()]));  // { pk[0]: {val_i: count_i, ...}, pk[1]: {val_j, count_j}, ... }
+				let pks_unique = true;
+
+				function validRow(tr) {
+					// either no null PKs, or everything is empty
+					return tr.querySelectorAll("input.pk-null").length == 0 ||
+						[...tr.querySelectorAll("input")].every(input => !input.value);
+				}
+
+				function syncSubmitBtn(input) {
+					submitBtn.disabled = modifiedEleCount == 0 || !pks_unique || !validRow(input.closest("tr"));
+				}
+
+				function addModified(ele) {
+					if (!ele.classList.contains("modified")) {
+						ele.classList.add("modified");
+						modifiedEleCount++;
+						syncSubmitBtn(ele);
+					}
+				}
+
+				function removeModified(ele) {
+					if (ele.classList.contains("modified")) {
+						ele.classList.remove("modified");
+						modifiedEleCount--;
+						syncSubmitBtn(ele);
+					}
+				};
+
+				function addInputListeners(input) {
+					function onInput(input) {
+						// check if modified
+						if (input.value != (input.dataset.initValue ?? ""))
+							addModified(input);
+						else
+							removeModified(input);
+						
+						// ensure pk non-null
+						if (PK.includes(input.dataset.col)) {
+							if (!input.value)
+								input.classList.add("pk-null");
+							else
+								input.classList.remove("pk-null");
+						}
+					}
+
+					// revert to default value
+					input.addEventListener("keydown", event => {
+						if (event.key !== "Escape")  return;
+						let ele = event.currentTarget;
+						ele.value = ele.dataset.initValue ?? "";
+						removeModified(ele);
+						event.preventDefault();
+						onInput(input);
+					});
+
+					// auto-fill input with placeholder value
+					input.addEventListener("keydown", event => {
+						if (event.key !== " ")  return;
+						let ele = event.currentTarget;
+						if (ele.value.trim().length > 0)  return;
+						ele.value = ele.placeholder;
+						event.preventDefault();
+						onInput(input);
+					});
+
+					// up/down table navigation
+					input.addEventListener("keydown", event => {
+						let UP = event.key === "ArrowUp";
+						if (!(UP || event.key === "ArrowDown"))  return;
+						let input = event.currentTarget;
+						let {col} = input.dataset;
+						let tr = input.closest("tr");
+						let dest;
+						if (UP) {
+							dest = tr.previousElementSibling ?? tr.parentElement.lastElementChild.previousElementSibling;
+						} else {
+							dest = tr.nextElementSibling;
+							if (dest == tr.parentElement.lastElementChild)
+								dest = tr.parentElement.firstElementChild;
+						}
+						dest.querySelector(`input[data-col=${col}]`).focus();
+						event.preventDefault();
+					});
+
+					// track which fields are modified from their original values
+					input.addEventListener("input", event => {
+						onInput(event.currentTarget);
+					});
+					input.addEventListener("change", event => {
+						let input = event.currentTarget;
+						input.value = input.value.trim();
+						onInput(input);
+					});
+
+					// keep pk_tally up to date
+					let focusedPK = null;
+					input.addEventListener("focus", event => {
+						let input = event.currentTarget;
+						let {col} = input.dataset;
+						if (!PK.includes(col))  return;  // not a primary key field
+						let {value} = input;
+						let count = pk_tally[col].get(value) - 1;
+						if (count > 0)
+							pk_tally[col].set(value, count);
+						else
+							pk_tally[col].delete(value);
+						focusedPK = value; // track for potential error clearing on blur
+					});
+					input.addEventListener("blur", event => {
+						let input = event.currentTarget;
+						let {col} = input.dataset;
+						if (!PK.includes(col))  return;  // not a primary key field
+						pks_unique = true;
+						
+						// check old value too
+						let count = pk_tally[col].get(focusedPK);  // may be undefined
+						if (count === 1) {
+							// we have resolved a previous error; clear conflicts
+							for (let match of table.querySelectorAll(`input[data-col=${col}]`))
+								if (match.value === focusedPK)
+									match.classList.remove("pk-dup")
+						} else if (count > 1) {
+							pks_unique = false;  // didn't resolve that previous error
+						}
+						focusedPK = null;  // to be safe
+
+						// is current value in conflict?
+						let {value} = input;
+						if (pk_tally[col].has(value)) {
+							// duplicate pk
+							pk_tally[col].set(value, pk_tally[col].get(value) + 1);
+							for (let match of table.querySelectorAll(`input[data-col=${col}]`))
+								if (match.value === value)
+									match.classList.add("pk-dup")
+							pks_unique = false;
+						} else {
+							// unique pk
+							pk_tally[col].set(value, 1);
+							input.classList.remove("pk-dup");
+						}
+						syncSubmitBtn(input);
+					});
+				}
+
+				function pk(input) {
+					let ret;
+					if (ret = PK.includes(input.dataset.col))
+						input.classList.add("pk");
+					return ret;
+				}
+
+				// Activate input all input fields in table
+				let ths = table.querySelectorAll("thead tr:first-of-type th");
+				console.assert(ths.length == COLS, { COLS, ths });  // DEBUG
+
+				let rows = table.querySelectorAll("tbody tr");
+				const ROWS = rows.length - 1;
+				const ADD_BTN = rows[ROWS];  // on last row
+
+				for (let th of ths)
+					if (PK.includes(th.innerText.trim()))
+						th.classList.add(".pk");
+
+				for (let i = 0; i < ROWS; i++)
+					for (let input of rows[i].querySelectorAll("input")) {
+						input.placeholder = input.dataset.initValue;
+						if (pk(input))
+							pk_tally[input.dataset.col].set(input.value, 1);  // initialize pk_tally
+						addInputListeners(input);
+					}
+
+				// Activate + button at bottom of table
+				let nextIdx = 1 + ROWS;  // track row number for the next row (1-based indexing)
+				function addRecord() {
+					let tr = document.createElement("tr");
+					for (let i = 0; i < COLS; i++)
+						tr.append(document.createElement("td"));
+					
+					// copy values from bottom row as placeholder examples, or just column names if no example rows exist
+					let placeholders = (
+						ROWS > 0
+						? rows[ROWS - 1].querySelectorAll("input").map(input => input.value)
+						: [...ths].map(th => th.innerText)
+					);
+
+					let idx = nextIdx++;
+					for (let [i, td] of tr.querySelectorAll("td").entries()) {
+						let input = document.createElement("input");
+						let col = ths[i].innerText.trim();
+						input.type = "text";
+						input.name = `${col}-${idx}`;
+						input.dataset.col = col;
+						input.placeholder = placeholders[i];
+						if (pk(input))
+							input.classList.add("pk-null");
+						addInputListeners(input);
+						td.append(input);
+					}
+
+					table.querySelector("tbody").insertBefore(tr, ADD_BTN);
+				}
+				table.querySelector("#add-record").addEventListener("click", addRecord);
+				document.addEventListener("keydown", event => {
+					if (!(event.key === "Enter" && event.shiftKey))  return;
+					event.preventDefault();
+					addRecord();
+				});
+
+				// handle form submition
+				submitBtn.form.addEventListener("submit", event => {
+					event.preventDefault();
+
+					let updates = [];  // record modifications (old values along with new values)
+
+					let rows = [...table.querySelectorAll("tbody tr")];  // shadow rows variable to now be all rows including newly added rows
+					let len = rows.length - 1;  // ignore the + button row
+					for (let i = 0; i < len; i++) {
+						let tr = rows[i];
+						let inputs = tr.querySelectorAll(".pk, .modified");
+						if (inputs.length <= 0)  continue;  // no changes to this record
+						let pk = {};  // initial value for the primary key
+						let values = {};
+						for (let input of inputs) {
+							let {col} = input.dataset;
+							if (input.classList.contains("pk"))
+								pk[col] = input.dataset.initValue;
+							if (input.classList.contains("modified"))
+								values[col] = input.value.trim();
+						}
+						updates.push({pk, values});
+					}
+
+					// TODO: send updates to server via POST
+					console.log(updates);  // DEBUG: stub
+				});
+			}
+		});
+	</script>
+</head>
+<body>
+	<h1>
+		{% if title %}
+			{{title}}
+		{% else %}
+			Table
+		{% endif %}
+	</h1>
+
+	<form action="" method="" name="edit-table" id="edit-table">
+		<table>
+			<thead>
+				{% for col in th %}
+					<th> {{col}} </th>
+				{% endfor %}
+			</thead>
+			<tbody>
+				{% for row in td %}
+					<tr>
+						{% for col in th %}
+							<td>
+								{% if mode == "edit" %}
+									<input type="text" name="{{col}}-{{loop.index}}" value="{{row[col]}}" data-col="{{col}}" data-init-value="{{row[col]}}">
+								{% else %}
+									{{row[col]}}
+								{% endif %}
+							</td>
+						{% endfor %}
+					</tr>
+				{% endfor %}
+
+				{% if mode == "edit" %}
+					<tr><td colspan="{{cols}}"><input type="button" id="add-record" value="+"></td></tr>
+				{% endif %}
+			</tbody>
+		</table>
+		<input type="submit" value="Commit Changes" disabled>
+	</form>
+	
+	<form name="vars">
+		<input type="hidden" name="pk" value="{{pk}}">
+		<input type="hidden" name="mode" value="{{mode}}">
+		<input type="hidden" name="cols" value="{{cols}}">
+	</form>
+</body>
+</html>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData, Table, insert, select, update, delete
 
@@ -25,12 +25,30 @@ with app.app_context():
 	order_line_item = Table("order_line_item", md, autoload_with=db.engine)
 
 
-# ----- Routes ----------------------------------------------------------------
-@app.route("/products")
-def products():
+def render_table(table, title=None, mode = "view"):
+	pk = ",".join(col.name for col in table.primary_key.columns)
 	with db.engine.connect() as conn:
-		products = conn.execute(select(product))
-		return render_template("index.j2",  title="Products", th=products.keys(), td=products)
+		selection = conn.execute(select(table))
+		th = selection.keys()
+		return render_template("table.j2", title=title, mode=mode, pk=pk, cols=len(th), th=th, td=selection)
+
+# ----- Routes ----------------------------------------------------------------
+@app.route("/products/view")
+def view_products(title="Products"):
+	return render_table(product, title=title, mode="view")
+
+@app.route("/products/edit")
+def edit_products(title="Products"):
+	match request.method:
+		case "GET":
+			return render_table(product, title=title, mode="edit")
+		case "POST":
+			return "TODO: implement POST"  # TODO: stub
+
+@app.route("/products")
+@app.route("/products/")
+def products():
+	return redirect("/products/view")
 
 @app.route("/customers")
 def customers():
@@ -43,7 +61,7 @@ def distributors():
 # inventory
 @app.route("/")
 def home():
-	return products()
+	return view_products()
 
 
 if __name__ == "__main__":
