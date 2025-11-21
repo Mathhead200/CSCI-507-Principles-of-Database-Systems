@@ -2,7 +2,6 @@ CREATE DATABASE petmac;
 
 CREATE USER 'petmac_app'@'%' IDENTIFIED BY 'K2EDhXXv3GfnRdkd5f7A';
 GRANT INSERT, SELECT, UPDATE, DELETE ON petmac.* TO 'petmac_app'@'%';
-GRANT SELECT ON information_schema.* TO 'petmac_app'@'%';
 FLUSH PRIVILEGES;
 
 USE petmac;

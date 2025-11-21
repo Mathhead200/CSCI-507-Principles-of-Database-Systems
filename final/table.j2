@@ -3,41 +3,122 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title> PetMAC Inventory - {{title}} </title>
+	<title> PetMAC Database - {{table}} </title>
 	{# <link rel="stylesheet" type="text/css" href="style.css"> #}
 	<style>
-		@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght@0,300..800;1,300..800&display=swap');
+		@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght@0,300..800;1,300..800&family=TASA+Orbiter:wght@400..800&display=swap');
 
-		body {
-			font-family: Arial, sans-serif;
+		/* Reference: https://htmlcolorcodes.com/color-names */
+		body.light-mode {
+			--color-bg-body: white;
+			--color-bg-section: ghostwhite;
+			
+			--color-fg-text: black;
+			--color-fg-a: mediumblue;
+			--color-fg-a-hover: darkviolet;
+
+			--color-pk-null: lemonchiffon;
+			--color-pk-dup: lightcoral;
+			--color-val-modified: lightskyblue;
 		}
 
-		table {
+		body.dark-mode {
+			/* TODO */
+		}
+
+		body, h1, h2, h3, h4, h5, h6, p { margin: 0; }
+
+		body {
+			background-color: var(--color-bg-body);
+			font-family: "TASA Orbiter", sans-serif;
+			font-size: 14pt;
+			text-align: center;
+		}
+
+		a, a:visited {
+			color: var(--color-fg-a);
+		}
+
+		a:hover, a:active {
+			color: var(--color-fg-a-hover);
+		}
+
+		nav a {
+			display: inline-block;
+			margin-inline: 0.5em;
+		}
+
+		#site-nav {
+			margin: 1.5em;
+		}
+
+		header {
+			margin: 1.5em;
+		}
+
+		header form {
+			margin-block: 0.5em;
+		}
+
+		#site-nav a[href='/table/{{table}}'] { color: var(--color-fg-text); }
+		header a[href={{mode}}] { color: var(--color-fg-text); }
+
+		#edit-table table {
+			background-color: var(--color-bg-section);
+			margin: auto;
 			border-collapse: collapse;
 			font-family: 'Google Sans Code', monospace;
 		}
 
-		th, td {
+		#edit-table th, td {
 			border: 1px solid black;
 			padding: 0.25em 1em;
 		}
 
-		.modified { background-color: lightskyblue; }
-		.pk-dup { background-color: lightcoral; }
-		.pk-null { background-color: lightyellow; }
+		#edit-table .hide { display: none; }
 
-		#add-record {
+		#edit-table input {
+			font-size: 12pt;
+		}
+
+		#edit-table .modified { background-color: var(--color-val-modified); }
+		#edit-table .pk-dup { background-color: var(--color-pk-dup); }
+		#edit-table .pk-null { background-color: var(--color-pk-null); }
+
+		#edit-table #add-record {
 			width: 100%;
 			cursor: pointer;
 		}
 	</style>
 	<script type="text/javascript">
 		document.addEventListener("DOMContentLoaded", () => {
-			const PK = document.forms.vars.pk.value.split(",");
-			const MODE = document.forms.vars.mode.value;
-			const COLS = Number(document.forms.vars.cols.value);
+			const PK = document.forms.vars.pk.value.split(",");   // primary keys
+			const TABLE = document.forms.vars.table.value;        // name of table
+			const MODE = document.forms.vars.mode.value;          // "view" or "edit"
+			const COLS = Number(document.forms.vars.cols.value);  // number of columns in table
 
 			const table = document.querySelector("#edit-table");  // actaully a <form> container
+
+			// filters
+			const FILTER_STORE = TABLE + ".hidden";  // name for filter storage
+			let hidden = new Set(localStorage.getItem(FILTER_STORE)?.split(","));  // hidden cols stored as comma seperated string; e.g. "A,B,C"
+			let checkboxes = document.forms.filters.querySelectorAll(".show-filter input");
+			function updateCol(col, show) {
+				// show or hide (!show) column with given name
+				for (let tx of table.querySelectorAll(`tr > *[data-col='${col}']`))
+					if (show)  tx.classList.remove("hide");
+					else       tx.classList.add("hide");
+			}
+			for (let checkbox of checkboxes) {
+				let {col} = checkbox.dataset;
+				updateCol(col, checkbox.checked = !hidden.has(col));
+				checkbox.addEventListener("input", () => {
+					updateCol(col, checkbox.checked);
+					if (checkbox.checked)  hidden.delete(col);
+					else                   hidden.add(col);
+					localStorage.setItem(FILTER_STORE, [...hidden].join(","));
+				});
+			}
 
 			// finish initializing table
 			if (MODE == "edit") {
@@ -49,9 +130,12 @@
 				let pks_unique = true;
 
 				function validRow(tr) {
+					return true;  // TODO: (remove/redesign) some tables can have null PKs becasue of AUTO INCREMENT
+					/*
 					// either no null PKs, or everything is empty
 					return tr.querySelectorAll("input.pk-null").length == 0 ||
 						[...tr.querySelectorAll("input")].every(input => !input.value);
+					*/
 				}
 
 				function syncSubmitBtn(input) {
@@ -218,7 +302,6 @@
 					}
 
 				// Activate + button at bottom of table
-				let nextIdx = 1 + ROWS;  // track row number for the next row (1-based indexing)
 				function addRecord() {
 					let tr = document.createElement("tr");
 					for (let i = 0; i < COLS; i++)
@@ -227,20 +310,20 @@
 					// copy values from bottom row as placeholder examples, or just column names if no example rows exist
 					let placeholders = (
 						ROWS > 0
-						? rows[ROWS - 1].querySelectorAll("input").map(input => input.value)
+						? [...rows[ROWS - 1].querySelectorAll("input")].map(input => input.value)
 						: [...ths].map(th => th.innerText)
 					);
 
-					let idx = nextIdx++;
 					for (let [i, td] of tr.querySelectorAll("td").entries()) {
 						let input = document.createElement("input");
 						let col = ths[i].innerText.trim();
+						td.dataset.col = col;
+						if (hidden.has(col))  td.classList.add("hide");
 						input.type = "text";
-						input.name = `${col}-${idx}`;
+						input.name = `petmac-${TABLE}-${col}`;
 						input.dataset.col = col;
 						input.placeholder = placeholders[i];
-						if (pk(input))
-							input.classList.add("pk-null");
+						if (pk(input))  input.classList.add("pk-null");
 						addInputListeners(input);
 						td.append(input);
 					}
@@ -264,50 +347,83 @@
 					let len = rows.length - 1;  // ignore the + button row
 					for (let i = 0; i < len; i++) {
 						let tr = rows[i];
-						let inputs = tr.querySelectorAll(".pk, .modified");
-						if (inputs.length <= 0)  continue;  // no changes to this record
+						let modifiedInputs = tr.querySelectorAll(".modified");
+						if (modifiedInputs.length <= 0)  continue;  // no changes to this record
+
 						let pk = {};  // initial value for the primary key
+						for (let input of tr.querySelectorAll(".pk"))
+							pk[input.dataset.col] = input.dataset.initValue;  // init pk value in case it is changing
+						
 						let values = {};
-						for (let input of inputs) {
-							let {col} = input.dataset;
-							if (input.classList.contains("pk"))
-								pk[col] = input.dataset.initValue;
-							if (input.classList.contains("modified"))
-								values[col] = input.value.trim();
-						}
+						for (let input of modifiedInputs)
+							values[input.dataset.col] = input.value.trim();  // populate SQL values with  .modified fields
+						
 						updates.push({pk, values});
 					}
 
 					// TODO: send updates to server via POST
-					console.log(updates);  // DEBUG: stub
+					console.log("Request:", updates);  // DEBUG: stub
+					fetch(table.action, {
+						method: table.method,
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(updates)
+
+					}).then(async response => {
+						if (!response.ok)  throw new Error(await response.text());
+						return response.json();  // try to parse HTTP response as JSON
+
+					}).then(data => {
+						console.log("Response (data):", data);
+						if (confirm(`Update successful! ${data.rowcount} rows updated. Refresh?`))
+							location.reload();  // refreash
+
+					}).catch(error => {
+						console.error("Response (error):", error);
+						page = window.open("", "_blank");
+						page.document.write(error.message);
+						page.document.close();  // render
+					});
 				});
 			}
 		});
 	</script>
 </head>
-<body>
-	<h1>
-		{% if title %}
-			{{title}}
-		{% else %}
-			Table
-		{% endif %}
-	</h1>
+<body class="light-mode">
+	<nav id="site-nav">
+		<a href="/table/product"> Products </a> |
+		<a href="/table/customer"> Customers </a> |
+		<a href="/table/distributor"> Distributors </a>
+	</nav>
 
-	<form action="" method="" name="edit-table" id="edit-table">
+	<header>
+		<h1> {{table|capitalize}} Table </h1>
+		<nav>
+			<a href="view"> View </a> |
+			<a href="edit"> Edit </a>
+		</nav>
+		<form name="filters">
+			{% for col in th %}
+				<label class="show-filter"> [<input name="show-{{col}}" type="checkbox" checked data-col="{{col}}"> {{col}}] </label>
+			{% endfor %}
+		</form>
+	</header>
+
+	<form action="/update/{{table}}" method="POST" name="edit-table" id="edit-table">
 		<table>
 			<thead>
-				{% for col in th %}
-					<th> {{col}} </th>
-				{% endfor %}
+				<tr>
+					{% for col in th %}
+						<th data-col="{{col}}"> {{col}} </th>
+					{% endfor %}
+				</tr>
 			</thead>
 			<tbody>
 				{% for row in td %}
 					<tr>
 						{% for col in th %}
-							<td>
+							<td data-col="{{col}}">
 								{% if mode == "edit" %}
-									<input type="text" name="{{col}}-{{loop.index}}" value="{{row[col]}}" data-col="{{col}}" data-init-value="{{row[col]}}">
+									<input type="text" name="petmac-{{table}}-{{col}}" value="{{row[col]}}" data-col="{{col}}" data-init-value="{{row[col]}}">
 								{% else %}
 									{{row[col]}}
 								{% endif %}
@@ -321,11 +437,14 @@
 				{% endif %}
 			</tbody>
 		</table>
-		<input type="submit" value="Commit Changes" disabled>
+		{% if mode == "edit" %}
+			<input type="submit" value="Commit Changes" disabled>
+		{% endif %}
 	</form>
 	
 	<form name="vars">
 		<input type="hidden" name="pk" value="{{pk}}">
+		<input type="hidden" name="table" value="{{table}}">
 		<input type="hidden" name="mode" value="{{mode}}">
 		<input type="hidden" name="cols" value="{{cols}}">
 	</form>
