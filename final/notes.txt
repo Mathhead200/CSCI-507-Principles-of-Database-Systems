@@ -1,1 +1,12 @@
-UPC price scraper: https://copilot.microsoft.com/shares/DwT6hBWev8Rgjum7pHX2S
+TODOs:
+1. Add views for reciepts, and past orders
+2. Add search filters for tables
+3. Design a way to connect pets to customers
+4. Create import tools for daily sales, and distributor orders for auto-updating inventory
+	a. Daily sales
+	b. Orders
+5. Create import tool for import customer, and inventory data from existing POS system
+	a. customer data
+	b. inventory data
+6. Develop UPC price scrapper for finding best price for ordering
+	https://copilot.microsoft.com/shares/DwT6hBWev8Rgjum7pHX2S
