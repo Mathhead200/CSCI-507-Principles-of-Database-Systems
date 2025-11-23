@@ -1,8 +1,7 @@
-CREATE DATABASE petmac;
+CREATE DATABASE petmac CHARACTER SET utf8mb4;
 
 CREATE USER 'petmac_app'@'%' IDENTIFIED BY 'K2EDhXXv3GfnRdkd5f7A';
 GRANT INSERT, SELECT, UPDATE, DELETE ON petmac.* TO 'petmac_app'@'%';
-FLUSH PRIVILEGES;
 
 USE petmac;
 
@@ -15,6 +14,7 @@ CREATE TABLE product (
 	price DECIMAL(8,2),           -- Max price $999,999.99 USD
 	in_stock INT,                 -- Quantity in stock
 	
+	notes TEXT,
 	last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
@@ -23,9 +23,11 @@ CREATE TABLE customer (
 	first_name VARCHAR(100),
 	last_name VARCHAR(100),
 	email VARCHAR(254),      -- Max length for email address per RFC 5321
+	phone VARCHAR(15),       -- per E.164 internation phone numner spec. (digits only)
 
 	birthday DATE,           -- For deals and marketing
 	
+	notes TEXT,
 	last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
 	UNIQUE (first_name, last_name, email)  -- It would be confusing to have two distinct customers with the same full name and email
@@ -36,7 +38,24 @@ CREATE TABLE distributor (
 	name VARCHAR(100),
 	
 	url VARCHAR(2083),   -- Conventionally used historical maximum URL length per Internet Explorer
+	
+	notes TEXT,
+	last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
+CREATE TABLE pet (
+	id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	name VARCHAR(100),
+
+	type VARCHAR(16),
+	breed VARCHAR(100),
+	birthday DATE,
+
+	favorites TEXT,
+	food_allergies TEXT,
+	medical TEXT,
+
+	notes TEXT,
 	last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
@@ -51,6 +70,7 @@ CREATE TABLE receipt (
 	discounts DECIMAL(8, 2),
 	total DECIMAL(8, 2),
 
+	notes TEXT,
 	last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
 	FOREIGN KEY (customer_id) REFERENCES customer(id) ON UPDATE CASCADE
@@ -67,6 +87,7 @@ CREATE TABLE `order` (
 	discounts DECIMAL(8, 2),
 	total DECIMAL(8, 2),
 
+	notes TEXT,
 	last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
 	FOREIGN KEY (distributor_id) REFERENCES distributor(id) ON UPDATE CASCADE
@@ -92,4 +113,14 @@ CREATE TABLE order_line_item (
 
 	FOREIGN KEY (order_id) REFERENCES `order`(id) ON UPDATE CASCADE,
 	FOREIGN KEY (product_sku) REFERENCES product(sku) ON UPDATE CASCADE
+);
+
+-- Many-to-many relation between TABLE customer and TABLE pet
+CREATE TABLE pet_owner (
+	customer_id INT UNSIGNED NOT NULL,  -- i.e., owner, etc.
+	pet_id INT UNSIGNED NOT NULL,
+
+	PRIMARY KEY (customer_id, pet_id),
+	FOREIGN KEY (customer_id) REFERENCES customer(id) ON UPDATE CASCADE,
+	FOREIGN KEY (pet_id) REFERENCES pet(id) ON UPDATE CASCADE
 );

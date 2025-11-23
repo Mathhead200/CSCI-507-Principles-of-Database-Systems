@@ -10,7 +10,7 @@ MYSQL_APP_USERNAME = "petmac_app"
 MYSQL_APP_PASSWORD = 'K2EDhXXv3GfnRdkd5f7A'
 
 # Set up Flask and SQLAlchemy
-app = Flask("PetMAC Inventory Server", template_folder=".")
+app = Flask("PetMAC Inventory Server", template_folder=".", static_folder=".")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"mysql+pymysql://{MYSQL_APP_USERNAME}:{MYSQL_APP_PASSWORD}@{MYSQL_HOST}/petmac"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -20,13 +20,16 @@ md = MetaData()
 with app.app_context():
 	product = Table("product", md, autoload_with=db.engine)
 	customer = Table("customer", md, autoload_with=db.engine)
+	pet = Table("pet", md, autoload_with=db.engine)
 	distributor = Table("distributor", md, autoload_with=db.engine)
+	pet_owner = Table("pet_owner", md, autoload_with=db.engine)
 	receipt = Table("receipt", md, autoload_with=db.engine)
 	order = Table("order", md, autoload_with=db.engine)
 	receipt_line_item = Table("receipt_line_item", md, autoload_with=db.engine)
 	order_line_item = Table("order_line_item", md, autoload_with=db.engine)
 
-	accessible_tables = { table.name : table for table in [product, customer, distributor] }
+	accessible_tables = [product, customer, distributor, pet]
+	accessible_tables = { table.name : table for table in accessible_tables }
 
 # ----- Routes ----------------------------------------------------------------
 def denormalize_for_ui(d: dict):
@@ -61,32 +64,32 @@ def render_table(table_name, mode=None):
 @app.route("/update/<table_name>", methods=["POST"])
 def update_table(table_name):
 	table = validate_table_name(table_name)
-	json = request.get_json()  # list of updates [ ..., {'pk': dict, 'values': dict}, ... ]
+	json = request.get_json()  # list of updates, inserts, and deletes
+
+	statements = []
+	for obj in json["deletes"]:
+		predicate = and_(*( table.c[pk_name] == pk_val for pk_name, pk_val in obj["pk"].items() ))
+		statements.append(delete(table).where(predicate))
+	for obj in json["updates"]:
+		predicate = and_(*( table.c[pk_name] == pk_val for pk_name, pk_val in obj["pk"].items() ))
+		statements.append( update(table).values(**normalize_for_sql(obj["values"])).where(predicate))
+	for obj in json["inserts"]:
+		statements.append(insert(table).values(**normalize_for_sql(obj["values"])))
+	
+	# execute
 	rowcount = 0
 	log = []
-	with Session(db.engine) as session:  # batch all requested updates as a SQL transaction
-		for update in json:
-			statement = None
-			if all(not pk for pk in update["pk"].values()):
-				# INSERT: all PKs are empty; new record
-				statement = insert(table).values(**normalize_for_sql(update["values"]))
-
-			else:
-				predicate = and_(*( table.c[pk_name] == pk_val for pk_name, pk_val in update["pk"].items() ))
-				if all(not val for val in update["values"].values()):
-					# DELETE: all values are empty; empty record
-					statement = delete(table).where(predicate)
-			
-				else:
-					# UPDATE: pk exists, and values exist
-					statement = update(table).values(**normalize_for_sql(update["values"])).where(predicate)
-			
-			# execute
-			result = session.execute(statement)
+	with Session(db.engine) as session:  # batch all requested updates, inserts, and delets as a single SQL transaction
+		for stmt in statements:
+			result = session.execute(stmt)
 			rowcount += result.rowcount
-			log.append({ 'sql': str(statement), 'rowcount': result.rowcount })
+			log.append({ 'sql': str(stmt), 'rowcount': result.rowcount })
 		session.commit()
 	return jsonify(success=True, rowcount=rowcount, log=log)  # in case a payload is expected
+
+@app.route("/<path:path>")
+def misc_file(path):
+	return app.send_static_file(path)
 
 @app.route("/")
 def home():
