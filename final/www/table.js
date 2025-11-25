@@ -117,7 +117,7 @@ if (MODE == "edit") {
 				if (dest == tr.parentElement.lastElementChild)
 					dest = tr.parentElement.firstElementChild;
 			}
-			dest.querySelector(`input[data-col=${col}]`).focus();
+			dest.querySelector(col ? `input[data-col=${col}]` : "td:last-child input").focus();
 			event.preventDefault();
 		});
 
@@ -296,7 +296,7 @@ if (MODE == "edit") {
 		fetch(table.action, {
 			method: table.method,
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(request)
+			body: JSON.stringify(request)  // do I need to stringify here?
 
 		}).then(async response => {
 			if (!response.ok)  throw new Error(await response.text());

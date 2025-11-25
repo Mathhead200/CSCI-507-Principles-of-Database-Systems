@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>PetMAC Database | Import - {{table}} </title>
+	<link rel="stylesheet" type="text/css" href="/style.css">
+	<style>
+		form > * {
+			display: block;
+			margin: 1em auto;
+		}
+
+		form fieldset {
+			border: 0px hidden transparent;
+			font-family: monospace;
+		}
+
+		#n {
+			width: 5em;
+		}
+
+		textarea {
+			width: 80%;
+			height: 20em;
+			font-family: monospace;
+		}
+	</style>
+	<script type="text/javascript">
+		window.TABLE = "{{table}}";
+	</script>
+	<script type="text/javascript" src="/import.js" defer></script>
+</head>
+<body>
+	<h1> Import {{table}} </h1>
+	<form name="import" action="{{table}}" method="POST">
+		<fieldset>
+			<input id="random" type="button" value="Generate Random">
+			<label> [n: <input id="n" type="number" placeholder="100">] </label>
+		</fieldset>
+		<textarea name="json"></textarea>
+		<input type="submit" value="Submit">
+	</form>
+</body>
+</html>
