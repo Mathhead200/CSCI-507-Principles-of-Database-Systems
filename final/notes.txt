@@ -10,3 +10,4 @@ TODOs:
 	b. inventory data
 6. Develop UPC price scrapper for finding best price for ordering
 	https://copilot.microsoft.com/shares/DwT6hBWev8Rgjum7pHX2S
+7. Gender of pets for address, and pronouns for customers.
