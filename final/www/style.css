@@ -60,38 +60,38 @@ header form {
 }
 
 /* ----- SQL <table> ------------------------------------------------------- */
-#edit-table table {
+table {
 	background-color: var(--color-bg-section);
 	margin: auto;
 	border-collapse: collapse;
 	font-family: 'Google Sans Code', monospace;
 }
 
-#edit-table thead tr                   { background-color: var(--color-bg-th); }
-#edit-table tbody tr:nth-of-type(odd)  { background-color: var(--color-bg-tr-1); }
-#edit-table tbody tr:nth-of-type(even) { background-color: var(--color-bg-tr-2); }
-#edit-table tbody tr.delete            { background-color: var(--color-delete); }
+thead tr                   { background-color: var(--color-bg-th); }
+tbody tr:nth-of-type(odd)  { background-color: var(--color-bg-tr-1); }
+tbody tr:nth-of-type(even) { background-color: var(--color-bg-tr-2); }
+tbody tr.delete            { background-color: var(--color-delete); }
 
-#edit-table th, td {
+th, td {
 	border: 1px solid black;
 	padding: 0.25em 1em;
 }
 
-#edit-table .hide { display: none; }
+.hide { display: none; }
 
-#edit-table input, #edit-table label {
+table input, #edit-table label {
 	font-size: 12pt;
 }
 
-#edit-table .modified { background-color: var(--color-val-modified); }
-#edit-table .pk-dup   { background-color: var(--color-pk-dup); }
-#edit-table .pk-null  { background-color: var(--color-pk-null); }
+.modified { background-color: var(--color-val-modified); }
+.pk-dup   { background-color: var(--color-pk-dup); }
+.pk-null  { background-color: var(--color-pk-null); }
 
-#edit-table #add-record {
+table #add-record {
 	width: 100%;
 	cursor: pointer;
 }
 
-#edit-table input[type=submit] {
+table input[type=submit] {
 	margin-block: 0.5em;
 }

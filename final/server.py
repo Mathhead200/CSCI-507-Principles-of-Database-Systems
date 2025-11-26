@@ -30,10 +30,11 @@ with app.app_context():
 	receipt_line_item = Table("receipt_line_item", md, autoload_with=db.engine)
 	order_line_item = Table("order_line_item", md, autoload_with=db.engine)
 
-	accessible_tables = [product, customer, distributor, pet]
+	accessible_tables = [product, customer, distributor, pet, receipt, order]
 	accessible_tables = { table.name : table for table in accessible_tables }
 
 # ----- Routes ----------------------------------------------------------------
+# helper functions
 def denormalize_for_ui(d: dict):
 	# Client should see SQL null values (None in python) represented as empty strings ("")
 	return { k: (v if v is not None else "") for k, v in d.items() }
@@ -47,6 +48,7 @@ def validate_table_name(table_name):
 		abort(404, description="TABLE not found: " + table_name)  # internally raises exception and ends function
 	return accessible_tables[table_name]
 
+# simple table views (no joins)
 @app.route("/table/<table_name>/<mode>")
 @app.route("/table/<table_name>/")
 def render_table(table_name, mode=None):
@@ -107,7 +109,49 @@ def import_table(table_name):
 	else:  # GET
 		return render_template("import.j2", table=table_name)
 
-@app.route("/dev/random/customers")
+# specialized views involving joins
+@app.route("/receipts")
+def view_receipts():
+	cid = request.args.get("cid", default="")
+	dstart = request.args.get("dstart", default="")
+	dend = request.args.get("dend", default="")
+
+	with db.engine.connect() as conn:
+		c_selection = conn.execute(select(customer.c.id, customer.c.first_name, customer.c.last_name))
+
+	if cid != "":
+		# Get all receipts for the selected customer
+		stmt = select(receipt).where(receipt.c.customer_id == cid)
+		if dstart != "":  stmt = stmt.where(receipt.c.date > dstart)
+		if dend != "":    stmt = stmt.where(receipt.c.date < dend)
+		with db.engine.connect() as conn:
+			r_selection = conn.execute(stmt)
+			cust = conn.execute(select(customer.c.first_name, customer.c.last_name).where(customer.c.id == cid)).first()._mapping
+		title = f"{cust['first_name']} {cust['last_name']}"
+
+	else:
+		# Get receipts in the specified date range
+		title="History"
+		now = datetime.now()
+		fmt = "%Y-%m-%d %H:%M:%S"  # expected format for SQL TIMESTAMP type: YYYY-MM-DD HH:MM:SS
+		if dstart == "":
+			yesterday = now - timedelta(days=1)
+			dstart = datetime(yesterday.year, yesterday.month, yesterday.day, 0, 0, 0).strftime(fmt)
+		if dend == "":
+			dend = now.strftime(fmt)
+		with db.engine.connect() as conn:
+			print("dstart", dstart)
+			print("dend", dend)
+			r_selection = conn.execute(select(receipt).where(receipt.c.date.between(dstart, dend)))
+	
+	return render_template("receipts.j2", title=title, receipt_schema=r_selection.keys(), receipts=r_selection, customers=c_selection)
+
+@app.route("/receipts/<receipt_id>")
+def view_recipt(receipt_id):
+	return render_template_string("TODO: implement")  # TODO: stub
+
+# dev tools for testing or demos
+@app.route("/dev/random/customer")
 def random_customers():
 	n = int(request.args.get("n", default=100))               # number of customers  to generate
 	bd_p = float(request.args.get("bd_p", default=0.90))       # birth day percentage
@@ -199,9 +243,9 @@ def random_customers():
 		})
 	return jsonify(customer_data)
 
-@app.route("/dev/random/pets")
+@app.route("/dev/random/pet")
 def random_pets():
-	n = int(request.args.get("n", default=100))               # number of pet to generate
+	n = int(request.args.get("n", default=100))  # number of pet to generate
 
 	# source: https://www.bluecross.org.uk/sites/default/files/d8/downloads/Blue-Cross-top-100-pet-dog-names.pdf
 	#         https://www.bluecross.org.uk/sites/default/files/d8/downloads/Blue-Cross-top-100-pet-cat-names.pdf
@@ -310,6 +354,37 @@ def random_pets():
 		})
 	return jsonify(pet_data)
 
+@app.route("/dev/random/receipt")
+def random_receipts():
+	n = int(request.args.get("n", default=100))  # number of receipts to generate
+	per_hour = 4  # number of receipts per hour to simulate
+	mu_price = 40.00   # mean
+	sig_price = 10.00  # std. dev.
+	min_price = 0.99
+	tax_rate = 0.05
+	discount_rate = 0.20  # 20% off
+	discount_freq = 0.15  # 15% chance
+	with db.engine.connect() as conn:
+		cust = [c._mapping for c in conn.execute(select(customer.c.id))]
+	receipt_data = []
+	t = datetime.now()
+	for i in range(n):
+		t -= timedelta(hours=random.expovariate(per_hour))
+		sub_total = round(max(min_price, random.gauss(mu_price, sig_price)), 2)
+		discounts = round(sub_total * discount_rate, 2)
+		tax = round((sub_total - discounts) * tax_rate, 2)
+		total = round(sub_total - discounts + tax, 2)
+		receipt_data.append({
+			"customer_id": random.choice(cust)["id"],
+			"date": t.strftime("%Y-%m-%d %H:%M:%S"),
+			"sub_total": sub_total,
+			"tax": tax,
+			"discounts": discounts,
+			"total": total
+		})
+	return jsonify(receipt_data)
+
+# catch all for www/ resources
 @app.route("/<path:path>")
 def misc_file(path):
 	return app.send_static_file(path)

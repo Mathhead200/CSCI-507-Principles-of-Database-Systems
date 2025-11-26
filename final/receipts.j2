@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title> PetMAC Database - Receipts </title>
+	<link rel="stylesheet" href="/style.css">
+	<script type="text/javascript" src="/receipts.js" defer></script>
+</head>
+<body>
+	<nav id="site-nav">
+		<a href="/table/product"> Products </a> |
+		<a href="/table/customer"> Customers </a> |
+		<a href="/table/distributor"> Distributors </a> |
+		<a href="/table/pet"> Pets </a> |
+		<a href="/receipts"> Receipts </a>
+	</nav>
+	<header>
+		<h1> Receipts - {{title}} </h1>
+		<nav>
+			<a href="/import/receipt"> Import </a>
+		</nav>
+		<form action="/receipts" method="GET">
+			<fieldset>
+				<legend> Customer </legend>
+				<label> id: <input id="cid" name="cid" type="text"> </label>
+				<label> first_name:
+					<select id="cfnames">
+						<option value=""></option>
+						{% for c in customers %}
+							<option value="{{c['first_name']}}" data-cid="{{c['id']}}">{{c['first_name']}}</option>
+						{% endfor %}
+					</select>
+					<input id="cfname" type="text">
+				</label>
+				<label> last_name:
+					<select id="clnames">
+						<option value=""></option>
+						{% for c in customers %}
+							<option value="{{c['last_name']}}" data-cid="{{c['id']}}">{{c['last_name']}}</option>
+						{% endfor %}
+					</select>
+					<input id="clname" type="text">
+				</label>
+			</fieldset>
+			<fieldset>
+				<legend> Date (Range) </legend>
+				<input type="text" name="dstart" placeholder="2025-01-31 00:00:00"> &ndash;
+				<input type="text" name="dend" placeholder="2025-12-31 23:59:59">
+			</fieldset>
+			<input type="submit" value="Submit">
+		</form>
+	</header>
+	<table>
+		<thead>
+			<tr>
+				{% for col in receipt_schema %}
+					<th>{{col}}</th>
+				{% endfor %}
+				<th><!-- empty --></th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for r in receipts %}
+				<tr>
+					{% for col in receipt_schema %}
+						<td>{{r[col]}}</td>
+					{% endfor %}
+					<td><a href="/receipts/{{r['id']}}">view</a></td>
+				</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+</body>
+</html>

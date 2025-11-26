@@ -4,7 +4,7 @@ let textarea = form.elements.json;
 document.querySelector("#random").addEventListener("click", () => {
 	let n = document.querySelector("#n").value;
 	if (n)  n = "n=" + n;
-	fetch(`/dev/random/${window.TABLE}s?${n}`, {
+	fetch(`/dev/random/${window.TABLE}?${n}`, {
 		method: "GET"
 	}).then(async response => {
 		if (!response.ok)  throw new Error(await response.text());
