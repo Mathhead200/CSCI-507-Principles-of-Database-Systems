@@ -63,6 +63,7 @@ header form {
 table {
 	background-color: var(--color-bg-section);
 	margin: auto;
+	margin-bottom: 3rem;
 	border-collapse: collapse;
 	font-family: 'Google Sans Code', monospace;
 }

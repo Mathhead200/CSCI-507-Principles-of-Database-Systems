@@ -23,7 +23,7 @@
 		<form action="/receipts" method="GET">
 			<fieldset>
 				<legend> Customer </legend>
-				<label> id: <input id="cid" name="cid" type="text"> </label>
+				<label> id: <input id="cid" type="text" name="cid"> </label>
 				<label> first_name:
 					<select id="cfnames">
 						<option value=""></option>
@@ -31,7 +31,7 @@
 							<option value="{{c['first_name']}}" data-cid="{{c['id']}}">{{c['first_name']}}</option>
 						{% endfor %}
 					</select>
-					<input id="cfname" type="text">
+					<input id="cfname" type="text" disabled> <!-- TODO: make names searchable -->
 				</label>
 				<label> last_name:
 					<select id="clnames">
@@ -40,13 +40,13 @@
 							<option value="{{c['last_name']}}" data-cid="{{c['id']}}">{{c['last_name']}}</option>
 						{% endfor %}
 					</select>
-					<input id="clname" type="text">
+					<input id="clname" type="text" disabled>  <!-- TODO: make names searchable -->
 				</label>
 			</fieldset>
 			<fieldset>
 				<legend> Date (Range) </legend>
-				<input type="text" name="dstart" placeholder="2025-01-31 00:00:00"> &ndash;
-				<input type="text" name="dend" placeholder="2025-12-31 23:59:59">
+				<input type="datetime-local" name="dstart" placeholder="2025-01-31 00:00:00"> &ndash;
+				<input type="datetime-local" name="dend" placeholder="2025-12-31 23:59:59">
 			</fieldset>
 			<input type="submit" value="Submit">
 		</form>
